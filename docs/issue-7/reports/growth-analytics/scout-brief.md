@@ -2,12 +2,15 @@
 
 Subject: issue-7. Lightweight scout pass on how PreToolUse gates
 mechanically verify document-norm compliance and enforce workflow
-ordering, informing this issue's methodology-gate + state-tracking
-design. Search was run **sequentially** (each lookup read in full before
-the next was issued, since later lookups were chosen based on what the
-earlier ones turned up — e.g. reading `pricing`'s gate before deciding
-whether `implementation-rulebook`'s state files were also worth reading),
-not in parallel.
+ordering, informing this issue's plugin-set/methodology-gate/state-
+tracking design. Search was run **sequentially** (each lookup read in
+full before the next was issued, since later lookups were chosen based
+on what the earlier ones turned up — e.g. reading `pricing`'s gate
+before deciding whether `implementation-rulebook`'s state files were
+also worth reading), not in parallel. No WebSearch tool was exercised in
+this pass — everything below comes from local, already-checked-out
+sibling rulebooks and this repo's own history, stated explicitly per
+this issue's own instructions, not from external web research.
 
 ## Must-bes (non-negotiable for this issue's gate design)
 
@@ -51,14 +54,22 @@ not in parallel.
   stdin to the gate script directly, and asserts exit code (0=allow,
   2=deny). This is the adoptable pattern for issue-7's designed test
   suite — no framework dependency, pure bash + the gate under test.
+- **One plugin, one capability**: `tokenmaxxxer-core/.claude-plugin/
+  marketplace.json` registers `core`/`terse`/`freelunch`/`scout`/
+  `warrant` as five independent, single-purpose plugins in one repo,
+  each with its own `.claude-plugin/plugin.json`, `hooks/`, and (for
+  `scout`, `freelunch`) `hooks/tests/`/`agents/`. This is the direct
+  structural precedent the issue's approver comment names for
+  growth-analytics's own three adopted methodologies.
 
 ## Adopt / skip
 
 - **Adopt**: fail-closed-on-internal-error wrapper (currently absent
   from this role's two gates — a real gap this issue's design should
-  close for the new methodology gate); root-resolution-before-trust;
+  close for each new methodology gate); root-resolution-before-trust;
   content-reconstruction across Write/Edit/MultiEdit; keyword/needle
-  presence checks; the disposable-repo-per-test-case harness shape.
+  presence checks; the disposable-repo-per-test-case harness shape; the
+  core marketplace's one-plugin-per-capability structure.
 - **Skip**: adopting a queueing/lock-file mechanism for concurrent
   writers — no evidence any rulebook plugin needs it (single-session,
   single-writer assumption holds everywhere surveyed); skip inventing a
@@ -74,7 +85,8 @@ implementation-rulebook) has a PreToolUse gate that enforces cross-write
 found (`hunt-state.sh`) tracks a different kind of session state (hunt
 miss-streak), not document-content ordering. This is the concrete gap
 issue-7's design proposal is closing for growth-analytics's Kohavi
-trust-gate order (SRM → A/A → guardrails → effect/CI → Twyman).
+trust-gate order (SRM → A/A → guardrails → effect/CI → Twyman), inside
+the dedicated `ga-trust` plugin.
 
 ## Sources
 
@@ -83,5 +95,7 @@ trust-gate order (SRM → A/A → guardrails → effect/CI → Twyman).
 - `/home/jwjung/tokenmaxxxer/rulebooks/pricing-rulebook/pricing/hooks/methodology-gate.sh` (read in full)
 - `/home/jwjung/tokenmaxxxer/rulebooks/implementation-rulebook/tests/run-gate-tests.sh` (read in full)
 - `/home/jwjung/tokenmaxxxer/rulebooks/implementation-rulebook/coding/hooks/state.sh` (read in full)
-- `/tmp/claude-1000/core-canon2/docs/handbooks/canon-scripts.md` (read in full, reference-not-copy rule)
+- `/home/jwjung/tokenmaxxxer/tokenmaxxxer-core/docs/handbooks/canon-scripts.md` (read in full, reference-not-copy rule)
 - `docs/issue-1/proposals/rulebook-maturation.md`, `docs/issue-1/reports/growth-analytics.md` (this repo, normative source, read in full)
+- `/home/jwjung/tokenmaxxxer/tokenmaxxxer-core/.claude-plugin/marketplace.json` (read for structure — five independent single-purpose plugins in one repo, the direct precedent for this issue's plugin-set requirement)
+- `/home/jwjung/tokenmaxxxer/tokenmaxxxer-core/freelunch/`, `/home/jwjung/tokenmaxxxer/tokenmaxxxer-core/scout/` directory listings (read for plugin-completeness shape only, not file contents beyond what informs layout)

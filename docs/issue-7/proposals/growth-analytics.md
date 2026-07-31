@@ -1,361 +1,446 @@
-# Proposal: growth-analytics mechanical enforcement design (issue-7)
+# Proposal: growth-analytics enforcement as a plugin set (issue-7)
 
-Subject: issue-7. Phase-1 proposal only — this PR lands no plugin code,
-no `src/`, no `tests/`, no hook script changes. It designs the
-enforcement machine implementation-rulebook has and growth-analytics
-does not, so that phase 2 (opened only by a fresh human Approve per
-`docs/specs/approvers.md` and contract v3 s19) has a concrete blueprint
-to reflect into the plugin.
+Subject: issue-7. Phase 1 proposal only — no plugin, hook, agent, or test
+file lands in this PR. Phase 2 (writing the scripts/agents/tests
+described below) opens only after human Approve per contract v3 s19 —
+concretely, either a PR review Approve or the issue-comment form
+`APPROVE issue-7/growth-analytics` from an account listed in
+`docs/specs/approvers.md` (currently `JiwonJung94`). Nothing here changes
+role boundaries or the role's `write_scope` (`[]`, unchanged).
 
-Normative source: `docs/issue-1/proposals/rulebook-maturation.md`
-(a)/(b)/(c), as reflected into the plugin by `docs/issue-1/reports/
-growth-analytics.md` (issue-1 phase 2). This proposal adopts no new
-methodology — it deepens the directive text and designs mechanical
-enforcement for the methodology issue-1 already approved.
+## 0. Framing correction (per approver comment)
 
-Current-state basis: `docs/issue-7/reports/growth-analytics/
-current-state-survey.md`, `docs/issue-7/reports/growth-analytics/
-scout-brief.md`.
+The issue body asked for "a methodology gate" (singular) deepening a
+single directive. The approver's issue comment corrected this: the
+deliverable must be a **set of independent, self-contained plugins**,
+one per adopted methodology — the same shape `core`'s marketplace already
+uses for `freelunch`/`scout`/`warrant`/`terse` (five single-purpose
+plugins registered in one `marketplace.json`, each with its own
+`.claude-plugin/plugin.json`, `hooks/`, and where relevant `agents/` and
+`hooks/tests/`). This proposal is written to that corrected structure.
+The rest of this document is organized as: (1) the plugin inventory,
+(2) each plugin's directive deepening, (3) each plugin's gate design,
+(4) each plugin's test design, (5) each plugin's agent/checklist, then
+(6) how phase-1 and phase-2 *norms* are each a composition of these
+plugins, and (7) the phase-2 reflection plan.
 
-Canon-scripts note (per `docs/handbooks/canon-scripts.md`, `core/hooks/`
-not checked out in this repo tree): everything below that resembles
-`pricing/hooks/methodology-gate.sh` is described in this document as a
-*pattern to follow*, not as script text to insert. Phase 2, when it
-writes actual hook code, must write growth-analytics's own script from
-this design, referencing the pattern, never copying `pricing`'s file
-byte-for-byte.
+## 1. Plugin inventory
 
----
+Three methodologies were adopted in issue-1 (`docs/issue-1/proposals/
+rulebook-maturation.md`, sections (a)/(b), approved and reflected in
+issue-1 phase 2, commit `4e50c6f`). Each becomes one plugin:
 
-## 1. Directive deepening
+| Plugin name | Methodology owned | Write surface | Components |
+|---|---|---|---|
+| `ga-prereg` | Pre-registration-first (phase-1 proposal norm) | `docs/issue-<n>/proposals/*.md` | directive + gate + tests |
+| `ga-funnel` | Stage/segment localization for funnel diagnosis (phase-2 norm) | `docs/issue-<n>/reports/growth-analytics.md`, `funnel diagnosis` section | directive + gate + agent + tests |
+| `ga-trust` | Kohavi experiment-trust gate (phase-2 norm) | `docs/issue-<n>/reports/growth-analytics.md`, `experiment trust verdict` section | directive + gate + state tracking + agent + tests |
 
-The current `directive.sh` `--produces` line already names the two
-artifacts and their 5 components each (issue-1 phase 2), but as one long
-string with no phase split, no judgment criteria, and no prohibitions.
-Phase 2 should restructure the directive's role-specific commentary
-(the free-text block below the `core_role_directive` call, the same slot
-already used for the pre-registration-first note) into the following
-shape, split by phase.
+Each plugin is self-contained: its own `.claude-plugin/plugin.json`
+(name, description, author — same shape as the existing
+`growth-analytics/.claude-plugin/plugin.json`), its own `hooks/`
+directory (`directive.sh` contributing a `SessionStart` fragment plus
+one `PreToolUse` gate script), its own `hooks/tests/` directory, and —
+for the two phase-2 plugins whose methodology is a repeated multi-step
+procedure — its own `agents/` directory. All three register in this
+repo's `.claude-plugin/marketplace.json` alongside the existing
+`growth-analytics` entry (which becomes the thin role-glue plugin: role
+directive core fields, hand-off, record path — the parts that are not
+methodology-specific).
 
-### Phase 1 (this role's own future proposals)
+Proposed marketplace addition (illustrative, not applied this phase):
 
-Steps, in order:
-1. Name the primary metric explicitly — one metric, not a category
-   ("checkout conversion", not "engagement metrics").
-2. State the hypothesis and expected effect direction/magnitude before
-   describing any observed data.
-3. State the sample size and duration, with the power-analysis basis
-   (minimum detectable effect, baseline rate, significance/power
-   targets) — a duration with no MDE basis is not a duration.
-4. Name guardrail metrics distinct from the primary metric, each with a
-   non-regression bound.
-5. State the decision rule as a threshold on the primary metric,
-   phrased as a pre-commitment ("if primary metric >= X with guardrails
-   intact, ship; otherwise kill/iterate"), not as a post-hoc judgment
-   call.
+```json
+{
+  "name": "ga-prereg",
+  "source": "./ga-prereg",
+  "description": "Pre-registration-first methodology for growth-analytics phase-1 proposals recommending an experiment: fixes primary metric, hypothesis, sample size/duration, guardrails, and decision rule before any data is interpreted."
+},
+{
+  "name": "ga-funnel",
+  "source": "./ga-funnel",
+  "description": "Stage/segment localization methodology for growth-analytics funnel-diagnosis deliverables: stage definitions, quantified drop-off, segment isolation, one bottleneck hypothesis, one prioritized single-stage recommendation."
+},
+{
+  "name": "ga-trust",
+  "source": "./ga-trust",
+  "description": "Kohavi trustworthy-experiments trust-gate for growth-analytics experiment-trust-verdict deliverables: SRM, A/A validity, guardrails, effect-size/CI, Twyman's-law skepticism, enforced in order via session state."
+}
+```
 
-Judgment criteria (how to tell a step is actually satisfied, not just
-gestured at):
-- A metric name is "explicit" only if a reader outside this role could
-  compute it from a raw event log without asking a follow-up question.
-- A sample-size/duration claim is "power-analysis basis stated" only if
-  the MDE, baseline rate, and target power/significance all appear as
-  numbers, not as "enough to detect a meaningful difference."
-- A decision rule is "pre-committed" only if it is phrased as a
-  conditional written before this proposal claims any data was
-  observed — a rule stated after the numbers are already visible in the
-  document does not count, even if it appears in the right section.
+Why plugins, not gate scripts inside the existing `growth-analytics`
+tree: (a) it matches the `core` precedent the approver named directly;
+(b) each methodology already has an independently statable adoption
+rationale (issue-1 proposal (c)) and independently testable pass/reject
+behavior — bundling them defeats the point of being able to reason about
+one methodology's enforcement without reading the other two; (c) it
+makes composition (section 6) an explicit, inspectable fact (which
+plugins are enabled) instead of an implicit fact buried inside one
+script's branching logic — the current `output-components-gate.sh`
+already exhibits this problem, silently bundling the funnel and
+trust-verdict checks in one file (current-state-survey.md, "What exists
+today," second bullet).
 
-Prohibitions:
-- Do not recommend running or trusting an experiment while any of the
-  five items is a vague placeholder ("TBD", "see dashboard").
-- Do not state a decision rule as a range with no committed threshold
-  ("somewhere around 2-3% lift") — a range is not a decision rule.
-- Do not substitute a list of "several KPIs we'll watch" for a single
-  named primary metric — this proposal's methodology exists specifically
-  to prevent multiple-comparisons post-hoc metric shopping.
+## 2. Directive deepening per plugin
 
-### Phase 2 (this role's own future deliverables)
+Each plugin's `directive.sh` fragment states phase (1 or 2, as
+applicable), the ordered steps, judgment criteria distinguishing
+"satisfied" from "mentioned," and explicit prohibitions — not a one-line
+summary. This section specifies the *content* each fragment must carry;
+phase 2 turns it into an actual `--produces`/comment block, composed via
+`role-directive.sh`'s existing multi-fragment support pattern (each
+plugin's `SessionStart` hook appends to the same session, as `core`'s
+`terse`/`freelunch`/`scout` already do alongside `core`'s own directive).
 
-**Funnel diagnosis** — steps, in order:
-1. Define every stage/event used, precisely enough that two analysts
-   pulling from the same raw log would draw the same funnel.
-2. Quantify stage-to-stage conversion/drop-off for every adjacent stage
-   pair, not just the overall top-to-bottom rate.
-3. Break down at least one segment axis (channel/cohort/device or an
-   equivalent already meaningful to this business) specifically at the
-   stage identified as weakest in step 2 — segment cuts done at a
-   different, non-weakest stage do not satisfy this step.
-4. State one bottleneck hypothesis that is a causal claim (why the
-   segment cut in step 3 shows what it shows), not a restatement of the
-   observation.
-5. State one recommendation scoped to the single weakest stage from
-   step 2 — a multi-stage wishlist fails this step even if each item on
-   it is individually reasonable.
+### `ga-prereg` (phase 1 only)
 
-Judgment criteria:
-- "Stage-to-stage" quantification means every adjacent pair has its own
-  number; an aggregate top-to-bottom conversion rate with no
-  intermediate breakdown does not satisfy step 2.
-- A bottleneck hypothesis is "causal" only if it names a mechanism
-  (e.g. "mobile checkout drop-off concentrates in the payment-form step
-  because the form's autofill fails on iOS Safari"), not just a
-  correlation ("mobile has lower conversion than desktop").
+Steps (in order): (1) name the single primary metric — reject "several
+KPIs" or an unnamed composite; (2) state hypothesis + expected effect
+direction and rough magnitude — reject "should improve X" with no
+direction/magnitude; (3) state sample size **and** duration together,
+with the power-analysis basis named (even informally, e.g. "N per arm
+from a 5%→6% MDE at 80% power") — a duration alone or a sample size
+alone does not satisfy this step; (4) name guardrail metrics distinct
+from the primary metric — reject reusing the primary metric as its own
+guardrail; (5) state the decision rule as a threshold on the primary
+metric, committed before data — reject "we'll evaluate holistically."
 
-Prohibitions:
-- Do not name a bottleneck without first localizing it to a specific
-  stage and segment (steps 1-3 must precede step 4).
-- Do not issue more than one prioritized recommendation per diagnosis —
-  multiple recommendations dilute the "single weakest stage" discipline
-  this methodology exists to enforce.
+Judgment criteria: each of the 5 items must be a literal, locatable line
+containing both a label-like cue (e.g. "primary metric:", "guardrail:")
+and a substantive value — a section heading with no content under it
+does not count as present.
 
-**Experiment trust verdict** — steps, in strict order (this is the
-methodology's one ordering constraint; see §2 for its enforcement):
-1. SRM check — chi-square goodness-of-fit on expected vs. observed
-   arm-assignment split, with the test statistic and p-value both
-   stated. Any SRM (conventionally p < 0.01 on this check) is a hard
-   stop: no further step's output may be reported as a verdict until
-   the SRM cause is found and the run is re-validated or re-run.
-2. Platform A/A validation status — validated / failed / unvalidated,
-   with the observed false-positive rate if the platform has run A/A
-   tests. This step may only be reached if step 1 did not hard-stop.
-3. Effect size + confidence interval against a pre-registered
-   practical-significance bar (not a bare p-value) — the bar must be
-   the one named in the originating phase-1 proposal's decision rule,
-   not a bar chosen after seeing the result.
-4. Guardrail metric check — delta and bound for every guardrail named
-   in the originating proposal, reported even when the primary metric
-   result is a clean win.
-5. Twyman's-law flag — any effect size that is surprisingly large
-   relative to the pre-registered expected effect (step-3's own
-   proposal-stated expectation) must be marked "unconfirmed, pending
-   independent check," never reported as a plain win.
+Prohibitions: (a) proposing to skip pre-registration because "this is
+just a quick test" — the methodology has no size exemption; (b) stating
+a decision rule in terms of statistical significance alone with no
+practical-significance threshold (a large-N false positive is not a
+license to declare a win); (c) naming a guardrail metric without stating
+what breach means (a bound, not just a name).
 
-Judgment criteria:
-- Step 1 is "satisfied" only if both the test statistic and the p-value
-  appear as numbers — "no SRM detected" with no numbers does not count.
-- Step 3's practical-significance bar must be traceable to the
-  originating phase-1 proposal (name or link the proposal's decision
-  rule) — a bar invented at verdict time is not "pre-registered."
-- Step 5's threshold for "surprisingly large" is: an observed effect
-  more than 2x the proposal's stated expected-effect magnitude, or an
-  effect the analyst's own text otherwise flags as surprising —
-  whichever triggers first.
+### `ga-funnel` (phase 2)
 
-Prohibitions:
-- Do not report an effect size or CI (step 3) before an SRM check
-  (step 1) is both present and non-failing in the same verdict — this
-  is the methodology's ordering constraint and the one this proposal's
-  §2 gate design mechanically enforces via state tracking.
-- Do not omit a guardrail's delta because the primary metric won — a
-  win with an unreported guardrail is not a verdict, it is a partial
-  report.
-- Do not report a Twyman-eligible effect as a plain result even with a
-  caveat elsewhere in the document — the flag must be attached to the
-  number itself, in the same section.
+Steps: (1) define each funnel stage/event explicitly — reject implicit
+stages inferred from prose; (2) quantify stage-to-stage conversion/
+drop-off with actual numbers, not qualitative language ("many users
+drop off" does not satisfy this); (3) break down by at least one
+segment axis (channel/cohort/device or an explicitly named equivalent)
+and show where the drop-off concentrates in that segment — reject a
+segment table with no concentration claim drawn from it; (4) state one
+bottleneck hypothesis that is a causal claim, not a restatement of the
+observation (e.g. not "stage 3 has the biggest drop" — that's the
+observation from step 2, not a hypothesis about *why*); (5) give exactly
+one prioritized recommendation scoped to the single weakest stage —
+reject a multi-stage wishlist, which this methodology explicitly treats
+as a prohibition, not just an omission.
 
----
+Judgment criteria: step 2's numbers must be attributable to a specific
+stage pair (not a single aggregate conversion rate for the whole
+funnel); step 3's segment breakdown must name the concentration
+explicitly (a table alone, with no sentence pointing at which cell is
+the problem, does not satisfy this).
 
-## 2. Methodology gate design
+Prohibitions: (a) more than one "prioritized recommendation" — this is a
+hard violation per the adopted methodology's explicit single-stage
+scoping, not a style preference; (b) a bottleneck hypothesis stated as
+"probably X" with no reference to the segment breakdown that motivated
+it — the hypothesis must trace to the segment evidence, not be
+freestanding domain intuition.
 
-### Two gates already exist; this proposal upgrades both and adds ordering.
+### `ga-trust` (phase 2)
 
-`output-components-gate.sh` and `proposal-preregistration-gate.sh`
-(issue-1 phase 2) already do component-presence checking on the record
-and proposal write surfaces respectively. Per the current-state survey,
-both are more permissive than `pricing/hooks/methodology-gate.sh`'s
-pattern in one concrete way: they `exit 0` on an empty stdin payload
-instead of failing closed, and neither wraps its Python body in a
-fail-closed `try/except` (a traceback today would not reliably deny).
-Phase 2 should bring both up to `pricing`'s pattern:
+Steps, **in this order, enforced by state tracking** (section 3.4 for
+mechanism): (1) SRM check — chi-square test statistic and p-value,
+expected-vs-observed split; a detected SRM is a hard stop, nothing
+downstream may be reported as a verdict until SRM is resolved or the
+experiment is invalidated; (2) platform A/A validation status
+(validated/failed/unvalidated) with observed false-positive rate if
+known; (3) guardrail metric checks — delta and bound per guardrail,
+reported even when the primary metric wins; (4) effect size and
+confidence interval against a pre-registered practical-significance bar
+— a bare p-value never satisfies this step; (5) Twyman's-law flag — any
+result whose effect size is anomalously large relative to the
+pre-registered expected effect (from the `ga-prereg` proposal that
+authorized this experiment, when traceable) is marked "unconfirmed,
+pending independent check," never reported as a plain result.
 
-- Treat an empty/unparseable payload as **deny**, not allow, when the
-  target path matches this role's write surface (mirroring `pricing`'s
-  `deny "methodology-gate: empty tool-use payload..."` rather than this
-  role's current `[ -n "$payload" ] || exit 0`).
-- Resolve `CLAUDE_PROJECT_DIR` defensively (plausibility check + a
-  `git rev-parse --show-toplevel` fallback) before trusting any path,
-  rather than only reading `tool_input.file_path` as given.
-- Wrap the Python judgment body in `try/except`, exiting 2 on any
-  internal error, plus an outer shell `trap` that also exits 2 on any
-  non-{0,2} exit — so a future maintenance bug in the gate fails closed
-  instead of silently permitting every write.
+Judgment criteria: step 1 must show both a statistic and a p-value, not
+either alone; step 2's status must be one of the three named values
+literally, not paraphrased; step 4's CI must have two bounds, not a
+point estimate with "roughly ±X%" prose.
 
-### New capability: a third gate, `methodology-order-gate.sh` (design only)
+Prohibitions: (a) reporting effect size/CI (step 4) before SRM (step 1)
+has cleared — this is the ordering constraint state tracking exists to
+enforce mechanically, not just stylistically; (b) an "unvalidated" A/A
+status silently treated as equivalent to "validated" — unvalidated caps
+confidence, it does not get skipped; (c) omitting the Twyman flag on a
+verdict whose reported effect exceeds 2x the `ga-prereg`-stated expected
+effect (a concrete, checkable numeric trigger rather than "if it looks
+surprising").
 
-Purpose: enforce the one ordering constraint named above — an
-experiment-trust-verdict write may not contain step-3/4/5 content
-(effect size, guardrail delta, Twyman flag) unless a **prior write in
-the same session** already recorded a passing (non-hard-stopped) SRM
-check for the same record file.
+## 3. Methodology gate design (per plugin, pricing-pattern-informed)
 
-Design (state tracking, no code written this phase):
+Reference: `pricing/hooks/methodology-gate.sh` (read in full at
+`/home/jwjung/tokenmaxxxer/rulebooks/pricing-rulebook/pricing/hooks/
+methodology-gate.sh`; **not copied** — see canon-scripts note in
+current-state-survey.md). Its pattern, described (not reproduced) for
+each of the three new gates:
 
-- **State file**: one small marker file per record path, written
-  alongside the record under a session-scoped, git-ignored location —
-  e.g. `.claude/.growth-analytics/<sanitized-record-path>.srm-state`
-  (path shape only; exact directory is a phase-2 discovery item,
-  matching issue-1 phase 2's own precedent of leaving an unconfirmed
-  mechanism detail open rather than guessing). Content: a single line,
-  either `srm-checked` (SRM step present, not a hard-stop) or absent
-  (no SRM check recorded yet this session).
-- **Write path**: every `PreToolUse` write to
-  `docs/issue-<n>/reports/growth-analytics.md` that contains an
-  `experiment-trust-verdict` section is inspected in two passes:
-  1. If the new content contains an SRM check (chi-square stat +
-     p-value present, per §1's judgment criteria) that is not itself
-     flagged as a hard-stop ("SRM detected", "hard stop" absent), the
-     gate writes `srm-checked` to the state file for that record path,
-     then proceeds to the existing component checks.
-  2. If the new content contains any of step 3/4/5's required
-     components (effect size/CI, guardrail delta, Twyman flag) but the
-     state file for that record path does not contain `srm-checked` —
-     and the *same write* does not itself also introduce a passing SRM
-     check (a single all-in-one write is allowed, since ordering is
-     about logical precedence within the record, not wall-clock write
-     count) — deny (exit 2), citing the missing SRM precedence.
-  3. If the new content's own SRM check is a hard-stop ("SRM detected"
-     language present), deny any co-present step 3/4/5 content
-     unconditionally, regardless of state-file contents — a hard-stop
-     always blocks the rest of the verdict in the same write.
-- **State reset**: the state file is scoped to one record path and is
-  never consulted for a different `docs/issue-<n>/reports/
-  growth-analytics.md` (different `n`) — state does not leak across
-  issues. A phase-2 discovery item: whether the state file should also
-  expire after some staleness window (e.g. a new session on the same
-  issue that never re-declares SRM should probably not silently reuse a
-  week-old marker) — left open here, to be resolved when the gate is
-  actually implemented and can be tested against real session
-  boundaries.
-- **Fail-closed default**: if the state file cannot be read/written for
-  any reason (permissions, disk), the gate denies rather than silently
-  treating the record as SRM-unchecked-but-allowed — consistent with
-  `pricing/hooks/methodology-gate.sh`'s fail-closed-on-internal-error
-  pattern.
+### 3.1 Shared shape across all three gates
 
-This is additive to (never a replacement for) the existing
-`output-components-gate.sh` presence check — the order gate answers
-"was SRM checked *before* the rest of the verdict is trustworthy,"
-the component gate answers "are all 5 components present at all."
+1. **Fail-closed wrapper.** `trap __fc EXIT` at the top, where `__fc`
+   exits 2 on any exit code other than 0 or 2 — an unhandled internal
+   error becomes a denial, not a silent pass. This closes the concrete
+   gap current-state-survey.md item 3 identifies: neither existing
+   `growth-analytics` gate has this wrapper today.
+2. **Fail-closed on empty payload.** An empty stdin payload is a denial
+   (`deny "empty tool-use payload"`), not `exit 0` — the existing two
+   gates do the opposite (`exit 0` on nothing to check); this proposal's
+   gates invert that default.
+3. **Root resolution before trusting a path.** Resolve
+   `CLAUDE_PROJECT_DIR` and validate it is plausible (has `.git` or a
+   known repo marker file) before trusting it; fall back to `git -C <dir>
+   rev-parse --show-toplevel`; deny if no root can be determined. The
+   target file path must resolve *inside* that root.
+4. **Content reconstruction, not diff-only.** Handle `Write` (use content
+   verbatim), `Edit` (apply the one replacement to prior content — where
+   prior content is read from disk if the file exists, empty otherwise),
+   and `MultiEdit` (apply all edits in order, all-or-nothing) to obtain
+   the actual post-write text before running any check. A gate that only
+   inspects `new_string` would miss content already present from an
+   earlier write in the same file.
+5. **Presence checks are mechanical needle checks over lowercased text**
+   — never an LLM judgment call inside the gate itself. Judgment criteria
+   from section 2 above (e.g. "two bounds, not a point estimate") are
+   expressed as regex/pattern checks (e.g. a CI needs two numbers
+   separated by a dash/comma/"to" near a "CI"/"confidence interval"
+   cue), not as a delegated free-text evaluation.
+6. **Kill switch env var per plugin** (`GA_PREREG_GATE_OFF`,
+   `GA_FUNNEL_GATE_OFF`, `GA_TRUST_GATE_OFF`), matching the existing
+   `GROWTH_ANALYTICS_CYCLE_OFF` naming convention in `directive.sh`.
 
-### Registration
+### 3.2 `ga-prereg`'s gate
 
-`hooks.json`'s `PreToolUse` array gains a third entry pointing at
-`methodology-order-gate.sh`, alongside the two upgraded existing gates,
-same matcher (`Write|Edit|MultiEdit`).
+Targets `docs/issue-<n>/proposals/*.md`. Keeps the existing keyword
+pre-gate (experiment/A-B term + run/trust/recommend term) so proposals
+not about experiments are unaffected — this is inherited behavior, not a
+new design point. On a match, checks all 5 items from section 2's
+judgment criteria; denies naming the first missing item by name (not
+just "missing items," to make the denial actionable).
 
----
+### 3.3 `ga-funnel`'s gate
 
-## 3. Gate tests design
+Targets `docs/issue-<n>/reports/growth-analytics.md`, fires only when a
+`funnel diagnosis` (or equivalent declared) section is present in the
+reconstructed content. Checks the 5 components with the judgment
+criteria from section 2, including the "exactly one recommendation"
+prohibition (a count check: more than one recommendation-shaped bullet
+under the recommendation heading is itself a denial reason, distinct
+from a missing-component denial).
 
-To live under repo-root `tests/` (new directory; none exists today),
-following `implementation-rulebook/tests/run-gate-tests.sh`'s pattern —
-a disposable `git init`'d temp dir per case, a synthetic `PreToolUse`
-JSON payload (`tool_name`/`tool_input`/`cwd`) piped to the gate script on
-stdin, exit code asserted (0=allow, 2=deny). No test script is written
-this phase; the cases below are the design phase 2 should implement
-against.
+### 3.4 `ga-trust`'s gate + state tracking
 
-`tests/run-gate-tests.sh` design, cases:
+Targets the same record file, fires on an `experiment trust verdict`
+section. This is the one gate with an **ordering constraint**, per
+section 2's prohibition (a): step 4 (effect/CI) may not be reported
+before step 1 (SRM) has cleared. Design:
 
-**`output-components-gate.sh` (existing gate, upgraded fail-closed
-behavior):**
-- `allow` — record write with all 5 funnel-diagnosis components present.
-- `deny` — record write declaring "funnel diagnosis" but missing the
-  segment-breakdown component.
-- `allow` — record write to a path that doesn't match
-  `docs/issue-<n>/reports/growth-analytics.md` (foreign path, gate is a
-  no-op).
-- `deny` (new, upgrade case) — empty stdin payload on a matching path
-  (currently `allow` under the existing script; this proposal's §2
-  upgrade makes it `deny`).
+- A small state file, session-scoped, at a path resolved the same way
+  `implementation-rulebook/coding/hooks/state.sh` resolves its state
+  path (pattern only, not copied) — e.g.
+  `<project-root>/.claude/state/growth-analytics/ga-trust-<issue-n>.json`
+  — recording which of the 5 steps have been *written and validated* so
+  far for this issue's verdict (not "attempted": the gate itself, having
+  checked step 1's presence and correctness on an earlier write to this
+  same file, marks it done).
+- On each `PreToolUse` write to the record file's experiment-trust-
+  verdict section, the gate: (a) re-derives which of the 5 steps are
+  present in the reconstructed content (this is idempotent — it does not
+  trust the state file blindly, it recomputes from content each time,
+  using the state file only to catch a **regression**: a later edit that
+  removes/blanks an earlier step's content after it had been validated);
+  (b) if step 4 or 5 content is present in this write but step 1 is not
+  present (in this write or state-file-recorded as previously
+  validated), deny with "SRM must be checked before effect size is
+  reported (Kohavi trust-gate order)"; (c) on allow, update the state
+  file with the now-validated step set.
+- This makes the gate stateful but still fail-closed and re-derivable —
+  losing the state file only means the gate re-checks from the full
+  current content on the next write (safe default: re-verify everything,
+  never silently trust a stale "already passed" state across content
+  changes).
+- Twyman's-law numeric trigger (section 2, prohibition (c)) is checked
+  by comparing the verdict's stated effect size against the expected
+  effect stated in the `docs/issue-<n>/proposals/*.md` file that
+  `ga-prereg`'s gate validated for the same issue number, when that file
+  exists and is locatable by issue-n path convention; if it cannot be
+  found, the check is skipped with a warning (fail-open only on this one
+  cross-file lookup, since the file may legitimately not exist for
+  every historical issue — this is the one deliberate exception to
+  "fail closed," stated explicitly rather than silently).
 
-**`proposal-preregistration-gate.sh` (existing gate):**
-- `allow` — proposal with no experiment/A-B keyword at all (this
-  proposal itself is such a case).
-- `deny` — proposal with "recommend running an A/B test" but missing
-  the guardrail-metrics item.
-- `allow` — proposal with all 5 pre-registration items present.
+## 4. Gate tests design (per plugin, for a later phase)
 
-**`methodology-order-gate.sh` (new gate, design only):**
-- `deny`, `srm-not-yet-checked` — a first write to a fresh record path
-  containing effect-size/CI and guardrail-delta text (steps 3/4) but no
-  SRM check anywhere in the new content and no prior `srm-checked`
-  state file.
-- `allow`, `srm-then-effect-same-write` — a single write whose content
-  contains a passing SRM check *and* effect-size/guardrail/Twyman
-  content, all in the same write (ordering satisfied within one write).
-- `allow`, `srm-checked-prior-write-then-effect` — write #1 records only
-  a passing SRM check (state file becomes `srm-checked`); write #2 (same
-  record path, same disposable repo, sequential in the test) adds
-  effect-size/guardrail content — must be allowed because state carries
-  over.
-- `deny`, `srm-hard-stop-blocks-verdict` — a write whose SRM section
-  contains hard-stop language ("SRM detected") alongside effect-size
-  content in the same write — must deny regardless of any prior
-  `srm-checked` state (a hard stop always blocks, per §2 design point
-  3).
-- `deny`, `state-file-unwritable` — simulate a state directory the test
-  harness has made unwritable (e.g. `chmod 000` on the parent dir before
-  the gate call) with a first-time SRM-checked write — must deny
-  (fail-closed), not silently allow.
-- `allow`, `foreign-path` — write to a differently-numbered issue's
-  record path than the one holding `srm-checked` state — must not reuse
-  cross-issue state (allow only if that other write's own content is
-  otherwise complete; this case specifically asserts no state leak, not
-  that the write is unconditionally allowed).
+Test harness shape (pattern from `implementation-rulebook/tests/
+run-gate-tests.sh`, read in full, not copied): each plugin's
+`hooks/tests/` directory gets a `run-gate-tests.sh` that, per case,
+`git init`s a disposable temp dir, writes any needed pre-existing file
+content, constructs a synthetic `PreToolUse` JSON payload
+(`tool_name`, `tool_input.file_path`, `tool_input.content` or
+`old_string`/`new_string`, `cwd`) on stdin, invokes the gate script
+directly, and asserts the exit code (0 = allow, 2 = deny) plus, for deny
+cases, that stderr names the specific missing/violated item.
 
----
+Concrete cases (described in prose this phase; not created as files):
 
-## 4. Agents / checklist
+### `ga-prereg`
+- PASS: proposal with all 5 items present and labeled, experiment
+  keywords present → exit 0.
+- PASS: proposal with no experiment keywords at all (e.g. a pure design
+  proposal) → exit 0, gate does not even engage.
+- REJECT: experiment proposal missing the decision rule only → exit 2,
+  stderr names "decision rule."
+- REJECT: experiment proposal with guardrail metric = primary metric
+  restated → exit 2 (prohibition (c) check).
+- REJECT (fail-closed): malformed/truncated JSON payload → exit 2, not a
+  crash.
 
-The methodology has two genuinely repeated procedures — the funnel
-5-step localization sequence and the Kohavi 5-step trust-gate sequence
-(§1). Neither currently has anything guiding production step-by-step;
-the existing gates only check the finished artifact. Per this issue's
-constraint (a repeated procedure gets an agent or checklist), this
-proposal recommends a **checklist**, not a new agent:
+### `ga-funnel`
+- PASS: all 5 components present, one recommendation.
+- REJECT: two recommendations under the recommendation heading → exit 2,
+  "exactly one recommendation" reason.
+- REJECT: segment table present but no concentration sentence → exit 2,
+  "segment breakdown does not identify concentration."
+- REJECT: bottleneck hypothesis is a verbatim restatement of the
+  drop-off number (regex: hypothesis sentence contains no causal-cue
+  word like "because"/"due to"/"caused by") → exit 2.
+- PASS: an `Edit` payload that only changes the recommendation section
+  of a file whose funnel-diagnosis section was already complete from a
+  prior `Write` → exit 0 (validates content reconstruction, not
+  diff-only checking).
 
-- A new agent was considered and rejected for this phase: the existing
-  `warrant-hunter.md` is this plugin's only agent and it serves an
-  unrelated purpose (rotating-stance hunting against this role's own
-  past output, not methodology execution). Introducing a second agent
-  whose only job is "walk through 5 steps in order" is more machinery
-  than the task needs — a checklist file achieves the same guidance
-  without a new agent-invocation surface to maintain, and matches this
-  role's existing lightweight footprint (one directive, a few gates, one
-  hunt agent).
-- Proposed location: `growth-analytics/hooks/lib/checklists/
-  experiment-trust-verdict.md` and `.../funnel-diagnosis.md` (path shape
-  only — phase 2 picks the final location), each a literal ordered
-  checklist mirroring §1's steps/judgment-criteria/prohibitions for that
-  artifact, meant to be read by the analyst (human or agent) producing
-  the artifact before writing it — not executed by any hook. The gates
-  in §2 remain the actual enforcement; the checklist is production-time
-  guidance so a write is more likely to pass the gate on the first try
-  rather than a purely reject-and-retry loop.
-- If phase 2 later finds the checklist alone insufficient (e.g. repeated
-  gate rejections show analysts aren't reading it), promoting it to an
-  actual `agents/methodology-walker.md` invoked at the start of a
-  funnel-diagnosis or experiment-trust-verdict task is the natural next
-  step — explicitly left as a future escalation, not built here.
+### `ga-trust`
+- PASS: verdict written in full with all 5 steps, SRM clean, in one
+  `Write` → exit 0, state file records all 5 validated.
+- REJECT: verdict `Write` containing only effect-size/CI content, no SRM
+  section at all → exit 2, ordering violation named.
+- REJECT: two-step sequence — first `Edit` adds SRM (passes, state file
+  updated), second `Edit` adds effect/CI referencing an anomalous
+  4x-expected effect with no Twyman flag present → exit 2 on the second
+  write, "Twyman's-law flag required."
+- PASS: same two-step sequence but the second edit includes the Twyman
+  flag language → exit 0.
+- REJECT (regression case): a third edit that removes the SRM section
+  after it was previously validated, while effect/CI content remains →
+  exit 2 (validates the gate re-derives from content every time rather
+  than trusting stale state).
+- REJECT (fail-closed): gate invoked with `CLAUDE_PROJECT_DIR` unset and
+  no `.git` in any resolvable ancestor → exit 2, "no project root."
 
----
+## 5. Agents / checklist per plugin
+
+Both phase-2 plugins own a genuinely repeated multi-step procedure, so
+each proposes one agent (as a doc-only proposal this phase — no agent
+file is created):
+
+- **`ga-funnel/agents/funnel-localizer.md`** — walks a session through
+  the 5-step stage/segment localization sequence in order, prompting for
+  each component's judgment-criteria content (section 2) before moving
+  to the next, and stops the walk at step 5 with an explicit reminder of
+  the single-recommendation prohibition. Modeled structurally on
+  `warrant-hunter.md`'s role as a canon-extension agent stub tailored to
+  one role's procedure, not copied from it (different methodology
+  entirely).
+- **`ga-trust/agents/trust-gate-walker.md`** — walks the Kohavi sequence
+  in the enforced order (mirrors the gate's own ordering constraint, so
+  the agent and the gate never disagree about what "in order" means),
+  hard-stopping at step 1 if SRM is detected before letting the session
+  proceed to step 2, and prompting explicitly for the Twyman comparison
+  against the linked `ga-prereg` proposal's expected effect at step 5.
+
+`ga-prereg`'s methodology (5 items, one proposal, no multi-artifact
+sequencing) does not have a comparable repeated-procedure shape distinct
+from just writing the proposal correctly the first time — no agent is
+proposed for it; the gate alone is proportionate, consistent with this
+issue's own instruction that an agent is only warranted "if the
+methodology requires a repeated procedure."
+
+## 6. Norms as plugin composition
+
+This is the structural core the approver's comment asked for made
+explicit, not left implicit in a single role directive:
+
+- **Phase-1 proposal norm** (issue-1 proposal (a)) = `ga-prereg` alone.
+  A growth-analytics phase-1 proposal that does not recommend an
+  experiment is governed by no methodology plugin beyond the generic
+  core canon record/proposal gates (§20 fields etc.) — `ga-prereg`'s own
+  keyword pre-gate is what makes this composition conditional rather
+  than blanket.
+- **Phase-2 output norm** (issue-1 proposal (b)) = `ga-funnel` **or**
+  `ga-trust`, selected by which section the record declares — not both
+  simultaneously on every write, since a single record write typically
+  targets one deliverable type. A record that declares *both* a funnel-
+  diagnosis and an experiment-trust-verdict section in the same write
+  (permitted — nothing prohibits combining both in one issue's record)
+  is checked by both gates independently (each `PreToolUse` hook fires
+  on its own matcher regardless of the other) — composition here is
+  "both apply, independently, when both sections are present," an AND
+  over whichever plugins' trigger conditions match, not an OR chosen
+  once per write.
+- **Cross-plugin composition**: `ga-trust`'s Twyman check (section 3.4)
+  is the one place a plugin's gate reads *another* plugin's write-
+  surface artifact (the linked `ga-prereg`-validated proposal) — this is
+  the concrete instance of "how methodology plugins compose," not a
+  hypothetical: `ga-trust` depends on `ga-prereg` having run first for
+  the same issue number when that dependency is checkable, and degrades
+  gracefully (warns, does not deny) when it isn't.
+- The existing `growth-analytics` plugin becomes the **composition
+  root**: its `directive.sh` keeps the role-wide fields (`--decides`,
+  `--use-when`, `--hand-off`, `--record-path`) and, in place of the
+  current inline `--produces` free text, states which methodology
+  plugins are expected enabled for this role (`ga-prereg`, `ga-funnel`,
+  `ga-trust`) and what artifact each is responsible for — the directive
+  becomes a manifest of composed plugins, not a monolith.
+
+## 7. Phase-2 reflection plan (blocked on Approve)
+
+1. Create `ga-prereg/`, `ga-funnel/`, `ga-trust/` as siblings of
+   `growth-analytics/` in this repo, each with `.claude-plugin/
+   plugin.json`, `hooks/directive.sh`, `hooks/<name>-gate.sh`,
+   `hooks/hooks.json`, `hooks/tests/run-gate-tests.sh` (+ `agents/` for
+   the two phase-2 plugins), per sections 2–5 above.
+2. Register all three in `.claude-plugin/marketplace.json` alongside the
+   existing `growth-analytics` entry, per section 1's illustrative JSON.
+3. Retire `growth-analytics/hooks/output-components-gate.sh` and
+   `proposal-preregistration-gate.sh` in favor of the three new
+   plugin-owned gates — remove their `hooks.json` wiring from
+   `growth-analytics/hooks/hooks.json` once the replacements are wired
+   in the new plugins' own `hooks.json` files. (Deletion of the two
+   existing files is itself a phase-2 action; nothing is deleted this
+   phase.)
+4. Rewrite `growth-analytics/hooks/directive.sh`'s `--produces` line
+   into the composition-manifest form described in section 6's last
+   bullet.
+5. Exercise every test case from section 4 before landing (or, if a real
+   automated harness is wired, run it and record pass/fail per case in
+   the phase-2 record — this proposal explicitly designs for automated
+   verification, closing the "manual only" gap issue-1 phase 2 left
+   open).
+6. Update `docs/issue-1/reports/growth-analytics.md`'s "Open findings"
+   note about `output-components-gate.sh` filling a core-canon gap: once
+   split into `ga-funnel`/`ga-trust`, note in the phase-2 record whether
+   that open finding is resolved, superseded, or still applicable.
 
 ## Explicitly out of scope for this issue
 
-- Any actual hook script (`methodology-order-gate.sh`,
-  upgraded `output-components-gate.sh` / `proposal-preregistration-
-  gate.sh`), `tests/run-gate-tests.sh`, or checklist file content —
-  phase 2, post-Approve, per contract v3 s19.
-- Copying `pricing/hooks/methodology-gate.sh` or `implementation-
-  rulebook`'s `state.sh`/`hunt-state.sh`/`run-gate-tests.sh` verbatim —
-  every mechanism above is a description of the pattern, to be
-  implemented as growth-analytics's own script in phase 2, per
-  `docs/handbooks/canon-scripts.md`.
-- Adopting a new domain methodology, changing `write_scope`, or
-  enumerating `warrant-hunter`'s stance set (unrelated, prior open
-  items, unaffected by this issue).
-- Resolving the exact state-file directory and staleness-window
-  questions flagged in §2 — named as phase-2 discovery items, not
-  assumed here.
+- Writing any actual `hooks/*.sh`, `agents/*.md`, `plugin.json`,
+  `marketplace.json` edit, or `tests/*.sh` file (phase 2, post-Approve).
+- Any change to `growth-analytics`'s `write_scope` or role hand-off
+  boundary (`캠페인 메시지 변경이 필요하면 → marketing`, unchanged).
+- Enumerating `warrant-hunter.md`'s stance set (issue-2's stated
+  out-of-scope item, unaffected by this issue).
+- Modifying core canon (`core/hooks/lib/role-directive.sh` or any core
+  script) — core is not checked out in this repo tree; the multi-
+  fragment `SessionStart` composition this proposal assumes (section 2's
+  intro) is asserted as consistent with `core`'s own `terse`/`freelunch`/
+  `scout` precedent, not independently verified against core's source
+  here (a phase-2 discovery item, same caveat pattern issue-1 (d)2 used).
