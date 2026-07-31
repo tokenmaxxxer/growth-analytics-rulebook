@@ -1,0 +1,7 @@
+{
+  "name": "ga-funnel",
+  "description": "Stage/segment localization methodology for growth-analytics funnel-diagnosis deliverables: stage definitions, quantified drop-off, segment isolation, one bottleneck hypothesis, one prioritized single-stage recommendation.",
+  "author": {
+    "name": "Jung Jiwon & Lee Jongkwan"
+  }
+}

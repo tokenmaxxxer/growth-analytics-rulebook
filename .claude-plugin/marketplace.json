@@ -8,6 +8,21 @@
       "name": "growth-analytics",
       "source": "./growth-analytics",
       "description": "The growth-analytics role on contract v3 (issue-160 round-3 promotion). Decides: 퍼널 병목과 실험 결과가 실제 개선인지."
+    },
+    {
+      "name": "ga-prereg",
+      "source": "./ga-prereg",
+      "description": "Pre-registration-first methodology for growth-analytics phase-1 proposals recommending an experiment: fixes primary metric, hypothesis, sample size/duration, guardrails, and decision rule before any data is interpreted."
+    },
+    {
+      "name": "ga-funnel",
+      "source": "./ga-funnel",
+      "description": "Stage/segment localization methodology for growth-analytics funnel-diagnosis deliverables: stage definitions, quantified drop-off, segment isolation, one bottleneck hypothesis, one prioritized single-stage recommendation."
+    },
+    {
+      "name": "ga-trust",
+      "source": "./ga-trust",
+      "description": "Kohavi trustworthy-experiments trust-gate for growth-analytics experiment-trust-verdict deliverables: SRM, A/A validity, guardrails, effect-size/CI, Twyman's-law skepticism, enforced in order via session state."
     }
   ]
 }

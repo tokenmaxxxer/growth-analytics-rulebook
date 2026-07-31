@@ -1,0 +1,7 @@
+{
+  "name": "ga-prereg",
+  "description": "Pre-registration-first methodology for growth-analytics phase-1 proposals recommending an experiment: fixes primary metric, hypothesis, sample size/duration, guardrails, and decision rule before any data is interpreted.",
+  "author": {
+    "name": "Jung Jiwon & Lee Jongkwan"
+  }
+}
