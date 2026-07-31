@@ -9,13 +9,13 @@ core_role_directive \
   --kill-switch-var GROWTH_ANALYTICS_CYCLE_OFF \
   --decides "퍼널 병목과 실험 결과가 실제 개선인지" \
   --use-when "퍼널 분석 또는 A/B 실험 해석이 걸릴 때" \
-  --produces "funnel-diagnosis (stage/event definitions + stage-to-stage drop-off quantification + segment breakdown isolating the drop-off + one bottleneck hypothesis + one prioritized single-stage recommendation), experiment-trust-verdict (SRM chi-square result + platform A/A validation status + effect size/CI vs. a pre-registered practical-significance bar + guardrail delta/bound per guardrail + Twyman's-law flag on anomalous wins) — components per issue-1 rulebook-maturation proposal, checked by output-components-gate.sh" \
+  --produces "Methodology enforcement is composed from independent plugins, not inlined here (issue-7 phase 2). ga-prereg governs docs/issue-<n>/proposals/*.md (phase-1 pre-registration-first: primary metric, hypothesis/expected effect, sample size+duration, guardrails, decision rule). ga-funnel governs the record's funnel-diagnosis section (stage/event definitions, stage-to-stage drop-off, segment concentration, causal bottleneck hypothesis, one prioritized recommendation). ga-trust governs the record's experiment-trust-verdict section (SRM -> A/A validity -> guardrails -> effect/CI -> Twyman flag, order-enforced). See docs/issue-1/proposals/rulebook-maturation.md for the adopted methodologies and docs/issue-7/proposals/growth-analytics.md section 6 for the composition rule (AND over whichever plugins' write-surface matchers fire, not an OR chosen once per write)." \
   --write-scope "" \
   --hand-off "캠페인 메시지 변경이 필요하면 → marketing" \
   --record-path "docs/issue-<n>/reports/growth-analytics.md"
 
-# This role's own future phase-1 proposals recommending an experiment run
-# or trust call follow pre-registration-first methodology (primary metric,
-# hypothesis/expected effect, sample size + duration, guardrail metrics,
-# decision rule) — enforced by proposal-preregistration-gate.sh. See
-# docs/issue-1/proposals/rulebook-maturation.md.
+# This role is the composition root for its adopted-methodology plugins
+# (ga-prereg, ga-funnel, ga-trust) — enable all three alongside this
+# plugin. Each is self-contained (own directive fragment, gate, tests,
+# and — for the two phase-2 plugins — an agent) and registers
+# independently in this repo's .claude-plugin/marketplace.json.

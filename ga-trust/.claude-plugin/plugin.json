@@ -1,0 +1,7 @@
+{
+  "name": "ga-trust",
+  "description": "Kohavi trustworthy-experiments trust-gate for growth-analytics experiment-trust-verdict deliverables: SRM, A/A validity, guardrails, effect-size/CI, Twyman's-law skepticism, enforced in order via session state.",
+  "author": {
+    "name": "Jung Jiwon & Lee Jongkwan"
+  }
+}
