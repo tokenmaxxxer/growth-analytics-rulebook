@@ -6,6 +6,15 @@
           { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/directive.sh" }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/output-components-gate.sh" },
+          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/proposal-preregistration-gate.sh" }
+        ]
+      }
     ]
   }
 }
