@@ -24,25 +24,14 @@
 # Kill switch: export GA_PREREG_GATE_OFF=1 (or 0/false/no/off to leave it
 # on explicitly). Any other value, including an unrecognized one, leaves
 # the gate enabled — there is no fail-open default.
+. "${CLAUDE_PLUGIN_ROOT_CORE:-$CLAUDE_PLUGIN_ROOT/../core}/hooks/lib/gate-lib.sh" \
+  || { echo "ga-prereg-gate.sh: cannot source gate-lib.sh" >&2; exit 2; }
+gate_trap_fail_closed
 set -uo pipefail
-
-__fc() {
-  code=$?
-  if [ "$code" -ne 0 ] && [ "$code" -ne 2 ]; then
-    echo "ga-prereg: internal error (exit $code) — failing closed." >&2
-    exit 2
-  fi
-}
-trap __fc EXIT
+gate_kill_switch_active "${GA_PREREG_GATE_OFF:-}" || { trap - EXIT; exit 0; }
 
 role="${CLAUDE_ROLE:-growth-analytics}"
 deny() { echo "ga-prereg: refused — $1" >&2; exit 2; }
-
-case "${GA_PREREG_GATE_OFF:-}" in
-  ""|0|false|no|off) ;;   # recognized off-value: gate stays ENABLED
-  1|true|yes|on) exit 0 ;; # recognized on-value: gate DISABLED
-  *) ;;                    # unrecognized value: gate stays ENABLED (fail closed)
-esac
 
 command -v python3 >/dev/null 2>&1 || deny "requires python3, which is not on PATH; denying rather than guessing."
 
@@ -55,8 +44,12 @@ if [ -z "$root" ] || { [ ! -d "$root/.git" ] && [ ! -f "$root/.git" ]; }; then
 fi
 [ -n "$root" ] && { [ -d "$root/.git" ] || [ -f "$root/.git" ]; } || deny "no project root (no CLAUDE_PROJECT_DIR/.git and no resolvable git toplevel)"
 
-GA_PAYLOAD="$payload" GA_ROOT="$root" GA_ROLE="$role" python3 <<'PY'
+GA_PAYLOAD="$payload" GA_ROOT="$root" GA_ROLE="$role" GATE_LIB_PY="$GATE_LIB_PY" python3 <<'PY'
 import json, os, re, sys
+
+import importlib.util
+_spec = importlib.util.spec_from_file_location("gate_lib", os.environ["GATE_LIB_PY"])
+gate_lib = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(gate_lib)
 
 def deny(m):
     sys.stderr.write("ga-prereg: refused — %s\n" % m)
@@ -64,15 +57,24 @@ def deny(m):
 
 raw = os.environ.get("GA_PAYLOAD", "")
 root = os.environ.get("GA_ROOT", "")
-try:
-    ev = json.loads(raw)
-except ValueError:
-    deny("malformed tool-use payload JSON")
-if not isinstance(ev, dict):
-    deny("tool-use payload is not a JSON object")
+ev = gate_lib.gate_parse_json_or_deny(raw, deny)
 
 tool = ev.get("tool_name")
 ti = ev.get("tool_input")
+
+GUARD_RE = re.compile(r'docs/issue-[0-9]+/proposals/.*\.md')
+if tool == "Bash" and isinstance(ti, dict):
+    command = ti.get("command")
+    if isinstance(command, str) and command:
+        for token in gate_lib.gate_bash_write_targets(command):
+            if GUARD_RE.search(token):
+                deny(
+                    "a Bash command targets %s. Use the Write or Edit tool for "
+                    "pre-registration proposal files instead of a shell redirect, "
+                    "so this gate can check the content before it lands." % token
+                )
+    sys.exit(0)
+
 if tool not in ("Write", "Edit", "MultiEdit") or not isinstance(ti, dict):
     sys.exit(0)
 
@@ -80,21 +82,17 @@ path = ti.get("file_path")
 if not isinstance(path, str) or not path:
     sys.exit(0)
 
-
-def contained(root_dir, abspath):
-    try:
-        root_r = os.path.realpath(root_dir)
-        path_r = os.path.realpath(abspath)
-        return os.path.commonpath([root_r, path_r]) == root_r
-    except ValueError:
-        return False
-
-
 norm = path.replace("\\", "/")
-abspath = norm if os.path.isabs(norm) else os.path.join(root, norm)
-abspath = os.path.normpath(abspath)
-if root and not contained(root, abspath):
+root_real = os.path.realpath(root) if root else root
+tail = gate_lib.gate_normalize_path(root_real, path) if root_real else ""
+if root_real and tail is None:
     deny("target path resolves outside the project root")
+
+abspath = os.path.join(root_real, tail) if (root_real and not os.path.isabs(norm)) else os.path.normpath(norm)
+if root_real:
+    real_abspath = os.path.realpath(abspath)
+    if not (real_abspath == root_real or real_abspath.startswith(root_real + "/")):
+        deny("target path resolves outside the project root")
 
 if not re.search(r'docs/issue-[0-9]+/proposals/.*\.md$', norm):
     sys.exit(0)
@@ -109,41 +107,9 @@ if os.path.isfile(abspath):
 else:
     current = ""
 
-new_text = None
-if tool == "Write":
-    c = ti.get("content")
-    if isinstance(c, str):
-        new_text = c
-elif tool == "Edit":
-    o, n = ti.get("old_string"), ti.get("new_string")
-    use_all = bool(ti.get("replace_all", False))
-    if isinstance(o, str) and isinstance(n, str):
-        if o == "":
-            new_text = current + n
-        elif o in current:
-            new_text = current.replace(o, n) if use_all else current.replace(o, n, 1)
-elif tool == "MultiEdit":
-    edits = ti.get("edits")
-    text = current
-    if isinstance(edits, list):
-        ok = True
-        for e in edits:
-            if not isinstance(e, dict):
-                ok = False; break
-            o, n = e.get("old_string"), e.get("new_string")
-            use_all = bool(e.get("replace_all", False))
-            if not isinstance(o, str) or not isinstance(n, str):
-                ok = False; break
-            if o == "":
-                text = text + n
-            elif o in text:
-                text = text.replace(o, n) if use_all else text.replace(o, n, 1)
-            else:
-                ok = False; break
-        if ok:
-            new_text = text
+new_text, ok = gate_lib.gate_reconstruct_write(tool, ti, current)
 
-if new_text is None:
+if not ok or new_text is None:
     deny("could not reconstruct post-write content for %s (old_string not found in current content, or replace_all left it unmatched); failing closed rather than skipping the check." % path)
 
 low = new_text.lower()

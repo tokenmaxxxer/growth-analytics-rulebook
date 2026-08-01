@@ -164,6 +164,30 @@ rm -rf "$workdir"
 # bound), proving reconstruction ran without error on a replace_all edit.
 if [ "$rc" -eq 0 ]; then pass=$((pass+1)); echo "PASS: Edit replace_all=true reconstructs all occurrences"; else fail=$((fail+1)); echo "FAIL: Edit replace_all=true reconstructs all occurrences (got $rc) — $out"; fi
 
+# --- issue-13 mandatory cases: missing-core, bash-write coverage ---
+
+ran_missing_core=0
+ran_bash_write=0
+
+# missing-core: CLAUDE_PLUGIN_ROOT_CORE points nowhere and no valid ../core
+# fallback exists either — the source-guard must deny (exit 2), not
+# silent-allow.
+workdir="$(mktemp -d)"; git init -q "$workdir"
+noplugroot="$(mktemp -d)/plugin-root-no-core-sibling"
+mkdir -p "$noplugroot"
+out="$(cd "$workdir" && CLAUDE_PLUGIN_ROOT_CORE="/nonexistent-core-$$" CLAUDE_PLUGIN_ROOT="$noplugroot" bash -c 'CLAUDE_PROJECT_DIR="$1" CLAUDE_ROLE=growth-analytics printf "%s" "$2" | "$3"' _ "$workdir" "$(mkjson Write docs/issue-9/proposals/x.md "$FULL")" "$gate" 2>&1)"; rc=$?
+rm -rf "$workdir" "$(dirname "$noplugroot")"
+ran_missing_core=1
+if [ "$rc" -eq 2 ]; then pass=$((pass+1)); echo "PASS: missing-core: gate-lib.sh unreachable denies, not silent-allow"; else fail=$((fail+1)); echo "FAIL: missing-core: gate-lib.sh unreachable denies, not silent-allow (got $rc) — $out"; fi
+
+# bash-write-coverage: a Bash command redirecting into a guarded proposal
+# path must be denied equivalently to a Write.
+bash_json='{"tool_name":"Bash","tool_input":{"command":"echo x > docs/issue-9/proposals/x.md"}}'
+ran_bash_write=1
+grep_case "bash-write: Bash redirect into guarded proposal path denied" "use the write or edit tool" "$bash_json"
+
+[ "$ran_missing_core" = 1 ] && [ "$ran_bash_write" = 1 ] || { echo "FAIL: mandatory groups not exercised"; fail=$((fail+1)); }
+
 echo "---"
 echo "ga-prereg: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

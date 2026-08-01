@@ -3,6 +3,33 @@
 Operational reference for the three methodology-enforcement plugins added
 in issue-7 phase 2 (`docs/issue-7/reports/growth-analytics.md`).
 
+## gate-lib reference-adoption (issue-13 phase 2)
+
+All three gates (`ga-prereg-gate.sh`, `ga-funnel-gate.sh`,
+`ga-trust-gate.sh`) now source core's `core/hooks/lib/gate-lib.sh` /
+`core/hooks/lib/gate-lib.py` (per
+`tokenmaxxxer-core`'s `docs/handbooks/gate-house-standard.md`) instead of
+each hand-rolling its own fail-closed trap, kill-switch, path-containment,
+and Write/Edit/MultiEdit-reconstruction logic. The source line is
+`||`-guarded (`. "${CLAUDE_PLUGIN_ROOT_CORE:-$CLAUDE_PLUGIN_ROOT/../core}/hooks/lib/gate-lib.sh" || { exit 2; }`)
+so an unreachable core fails the gate closed rather than silently
+defining no `gate_*` functions. Domain-specific checks (pre-registration
+fields, funnel-diagnosis section content, the Kohavi trust-gate state
+machine) are unchanged — only the shared plumbing moved to the library.
+No local copy of gate-lib exists in this repo; it is referenced, never
+vendored.
+
+Each gate's `hooks.json` matcher also now includes `Bash`
+(`"Write|Edit|MultiEdit|Bash"`), and the gate's Python payload calls
+`gate_lib.gate_bash_write_targets` against a `Bash` tool call's command
+string to deny a shell-redirect write into the gate's own guarded path
+(e.g. `echo x > docs/issue-9/proposals/x.md`) — closing a bypass that
+existed before this migration, since a `Bash` tool call never reached the
+`Write|Edit|MultiEdit`-only matcher. This is coverage in addition to the
+existing Write/Edit/MultiEdit content checks, not a replacement for them;
+`NotebookEdit` is deliberately still not in any matcher or code path,
+since none of these gates guard notebooks.
+
 ## Running the gate tests
 
 Each plugin owns its own test harness; run them individually:
@@ -16,7 +43,19 @@ bash ga-trust/hooks/tests/run-gate-tests.sh
 Each script exits 0 only if every case in it passes; it prints a
 `PASS`/`FAIL` line per case plus a final tally. Run all three before
 landing any change to a gate script, a plugin's directive text, or an
-agent file.
+agent file. Since issue-13 phase 2 each harness also carries a mandatory
+`missing-core` group (denies when `CLAUDE_PLUGIN_ROOT_CORE`/`../core` is
+unresolvable) and a `bash-write-coverage` group (denies a `Bash`-redirect
+write to the gate's own guarded path); a harness that silently drops
+either group fails itself via a trailing assertion.
+
+Also verify gate-lib compliance against core's detector:
+
+```
+"${CORE_PLUGIN_ROOT:-$CLAUDE_PLUGIN_ROOT/../core}/hooks/tests/compliance-check.sh" ga-prereg/hooks
+"${CORE_PLUGIN_ROOT:-$CLAUDE_PLUGIN_ROOT/../core}/hooks/tests/compliance-check.sh" ga-funnel/hooks
+"${CORE_PLUGIN_ROOT:-$CLAUDE_PLUGIN_ROOT/../core}/hooks/tests/compliance-check.sh" ga-trust/hooks
+```
 
 ## Kill switches (fail-open escape hatches, per plugin)
 
