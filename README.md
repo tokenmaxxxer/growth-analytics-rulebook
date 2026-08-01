@@ -22,10 +22,11 @@ claude plugin install growth-analytics
 - `growth-analytics/.claude-plugin/plugin.json` — plugin manifest
 - `growth-analytics/hooks/hooks.json` — SessionStart + PreToolUse wiring
 - `growth-analytics/hooks/directive.sh` — SessionStart role directive
-- `growth-analytics/hooks/record-fields-gate.sh` — this role's record required-field gate
-- `growth-analytics/hooks/trailer-gate.sh` — commit `Subject: issue-<n>` trailer gate
-- `growth-analytics/hooks/handbook-trigger-gate.sh` — s21 handbook-sync gate
 - `growth-analytics/agents/warrant-hunter.md` — rotating-stance hunt agent
+- `ga-prereg/hooks/ga-prereg-gate.sh` — pre-registration-first gate on experiment proposals
+- `ga-funnel/hooks/ga-funnel-gate.sh` — funnel-diagnosis structure gate
+- `ga-trust/hooks/ga-trust-gate.sh` — Kohavi trust-gate order gate on experiment-trust verdicts
+- see `docs/handbooks/growth-analytics-plugins.md` for kill switches, test-run commands, and session-state details
 - `docs/specs/approvers.md` — Approve-authority allowlist (see below)
 
 This is scaffolding, not a finished rulebook: fill in doctrine detail,
