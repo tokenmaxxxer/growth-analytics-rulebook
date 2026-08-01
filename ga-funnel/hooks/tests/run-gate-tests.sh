@@ -155,6 +155,31 @@ out="$(cd "$workdir" && CLAUDE_PROJECT_DIR="$workdir" CLAUDE_ROLE=growth-analyti
 rm -rf "$workdir"
 if [ "$rc" -eq 0 ]; then pass=$((pass+1)); echo "PASS: MultiEdit per-edit replace_all=false reconstructs correctly"; else fail=$((fail+1)); echo "FAIL: MultiEdit per-edit replace_all=false reconstructs correctly (got $rc) — $out"; fi
 
+# --- issue-13 mandatory: missing-core (source guard fails closed) ---
+missing_core_ran=0
+workdir="$(mktemp -d)"; git init -q "$workdir"
+nocore_root="$(mktemp -d)"
+out="$(cd "$workdir" && CLAUDE_PROJECT_DIR="$workdir" CLAUDE_ROLE=growth-analytics \
+  CLAUDE_PLUGIN_ROOT_CORE="/nonexistent-core-$$" CLAUDE_PLUGIN_ROOT="$nocore_root" \
+  bash -c 'printf "%s" "$1" | "$2"' _ "$(mkjson_write docs/issue-9/reports/growth-analytics.md "$FULL")" "$gate" 2>&1)"; rc=$?
+rm -rf "$workdir" "$nocore_root"
+missing_core_ran=1
+if [ "$rc" -eq 2 ]; then pass=$((pass+1)); echo "PASS: missing core (CLAUDE_PLUGIN_ROOT_CORE unresolvable) fails closed"; else fail=$((fail+1)); echo "FAIL: missing core fails closed (expected 2, got $rc) — $out"; fi
+
+# --- issue-13 mandatory: bash-write-coverage (Bash redirect bypass closed) ---
+bash_write_ran=0
+workdir="$(mktemp -d)"; git init -q "$workdir"
+bash_json='{"tool_name":"Bash","tool_input":{"command":"echo x > docs/issue-9/reports/growth-analytics.md"}}'
+out="$(cd "$workdir" && CLAUDE_PROJECT_DIR="$workdir" CLAUDE_ROLE=growth-analytics printf '%s' "$bash_json" | "$gate" 2>&1)"; rc=$?
+rm -rf "$workdir"
+bash_write_ran=1
+if [ "$rc" -eq 2 ]; then pass=$((pass+1)); echo "PASS: Bash write to guarded path denied"; else fail=$((fail+1)); echo "FAIL: Bash write to guarded path denied (expected 2, got $rc) — $out"; fi
+
+if [ "$missing_core_ran" -ne 1 ] || [ "$bash_write_ran" -ne 1 ]; then
+  echo "HARNESS FAILURE: mandatory groups (missing-core, bash-write-coverage) did not both run" >&2
+  fail=$((fail+1))
+fi
+
 echo "---"
 echo "ga-funnel: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

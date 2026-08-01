@@ -236,6 +236,36 @@ out="$(invoke "$w" "$(mkjson_write "$outside/docs/issue-9/reports/growth-analyti
 rm -rf "$w" "$outside"
 if [ "$rc" -eq 2 ]; then pass=$((pass+1)); echo "PASS: absolute path outside project root denied"; else fail=$((fail+1)); echo "FAIL: absolute path outside project root denied (got $rc) — $out"; fi
 
+# --- issue-13 mandatory: missing-core fails closed, not silent-allow ---
+ran_missing_core=0
+w="$(mktemp -d)"; git init -q "$w"
+out="$(cd "$w" && CLAUDE_PROJECT_DIR="$w" CLAUDE_ROLE=growth-analytics \
+  CLAUDE_PLUGIN_ROOT_CORE="/nonexistent-core-$$" \
+  CLAUDE_PLUGIN_ROOT="/nonexistent-plugin-root-$$" \
+  printf '%s' "$(mkjson_write docs/issue-9/reports/growth-analytics.md "$FULL")" | "$gate" 2>&1)"; rc=$?
+rm -rf "$w"
+ran_missing_core=1
+expect "REJECT: missing core (gate-lib.sh unreachable) fails closed" 2 "$out" "$rc"
+
+# --- issue-13 mandatory: Bash-write bypass coverage ---
+ran_bash_write_coverage=0
+w="$(mktemp -d)"; git init -q "$w"
+bash_json='{"tool_name":"Bash","tool_input":{"command":"echo x > docs/issue-9/reports/growth-analytics.md"}}'
+out="$(invoke "$w" "$bash_json")"; rc=$?
+rm -rf "$w"
+ran_bash_write_coverage=1
+expect "REJECT: Bash write to guarded record path (bypass closed)" 2 "$out" "$rc"
+
+# --- mandatory-groups-exercised assertion: fail the harness itself if a
+# future edit silently drops one of the two issue-13 groups above ---
+if [ "$ran_missing_core" -ne 1 ] || [ "$ran_bash_write_coverage" -ne 1 ]; then
+  fail=$((fail+1))
+  echo "FAIL: mandatory issue-13 test groups (missing-core, bash-write-coverage) did not both run"
+else
+  pass=$((pass+1))
+  echo "PASS: mandatory issue-13 test groups (missing-core, bash-write-coverage) both ran"
+fi
+
 echo "---"
 echo "ga-trust: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
