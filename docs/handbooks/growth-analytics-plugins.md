@@ -27,8 +27,36 @@ agent file.
   `GA_TRUST_DIRECTIVE_OFF=1` — suppress the corresponding `directive.sh`
   `SessionStart` fragment.
 
-Any non-empty, non-`0`/`false`/`no`/`off` value disables the gate/
-directive; unset or falsy values leave it enabled.
+Only a recognized on-value (`1`/`true`/`yes`/`on`) disables a gate;
+unset/`0`/`false`/`no`/`off` leave it enabled, and — since issue-10 phase
+2 — so does any other unrecognized value. There is no fail-open default:
+a typo in the kill-switch value keeps the gate active.
+
+## ga-trust Twyman cross-check requires a named proposal
+
+Since issue-10 phase 2, an "experiment trust verdict" section that
+reports an effect size must also name the specific proposal file it is
+validating against, via a labeled line:
+
+```
+Proposal: docs/issue-<n>/proposals/<name>.md
+```
+
+`ga-trust-gate.sh` reads only that file's `expected effect` for the
+Twyman ratio check (no more picking an arbitrary file from
+`docs/issue-<n>/proposals/` in directory-listing order), and denies if
+the reported and expected effect sizes are stated in different units
+(`pp` vs `%`) rather than silently comparing bare numbers.
+
+## Section scoping
+
+`ga-trust-gate.sh` and `ga-funnel-gate.sh` now require their trigger
+phrase ("experiment trust verdict" / "funnel diagnosis") to appear as a
+markdown heading; every per-step/per-component check runs only inside
+that heading's section (to the next same-or-higher-level heading or
+EOF), not the whole document. `ga-prereg-gate.sh` does not require a
+heading — it has no established heading convention — and keeps its
+whole-document keyword pre-gate and labeled-line scan.
 
 ## ga-trust session state
 

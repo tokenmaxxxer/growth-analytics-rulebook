@@ -88,6 +88,73 @@ edit_json="$(mkjson_edit docs/issue-9/reports/growth-analytics.md "Fix the mobil
 run_pass "PASS: Edit on top of already-complete Write (content reconstruction)" "$edit_json" "$workdir"
 rm -rf "$workdir"
 
+# --- issue-10 mandatory: section-scoping (checks other than recommendation
+# extraction must not be satisfied by content outside the funnel-diagnosis
+# heading's section) ---
+LEAK="## Appendix
+Segment: channel breakdown shows drop concentrated in paid-social channel
+Stage definition: stage 1 = signup, stage 2 = activation
+Drop-off: stage 1 -> stage 2: 40%
+
+## Funnel diagnosis
+Bottleneck hypothesis: checkout drop is caused by a broken payment redirect
+Recommendation:
+- Fix the payment redirect"
+grep_case "REJECT: section-scoping, appendix content outside heading not credited" "stage/event definitions" "$(mkjson_write docs/issue-9/reports/growth-analytics.md "$LEAK")" ""
+
+# --- issue-10 mandatory: arm-phrase without a heading must deny, not skip ---
+NO_HEADING="This report mentions a funnel diagnosis in passing but never
+puts it under its own section heading."
+grep_case "REJECT: arm-phrase present but no markdown heading" "markdown heading" "$(mkjson_write docs/issue-9/reports/growth-analytics.md "$NO_HEADING")" ""
+
+# --- issue-10 mandatory: malformed JSON ---
+workdir="$(mktemp -d)"; git init -q "$workdir"
+out="$(cd "$workdir" && CLAUDE_PROJECT_DIR="$workdir" CLAUDE_ROLE=growth-analytics printf '%s' '{not valid json' | "$gate" 2>&1)"; rc=$?
+rm -rf "$workdir"
+if [ "$rc" -eq 2 ]; then pass=$((pass+1)); echo "PASS: REJECT malformed JSON payload"; else fail=$((fail+1)); echo "FAIL: REJECT malformed JSON payload (got $rc) — $out"; fi
+
+# --- issue-10 mandatory: kill switch ---
+workdir="$(mktemp -d)"; git init -q "$workdir"
+out="$(cd "$workdir" && CLAUDE_PROJECT_DIR="$workdir" CLAUDE_ROLE=growth-analytics GA_FUNNEL_GATE_OFF=maybe bash -c 'printf "%s" "$1" | "$2"' _ "$(mkjson_write docs/issue-9/reports/growth-analytics.md "$TWO_RECS")" "$gate" 2>&1)"; rc=$?
+rm -rf "$workdir"
+if [ "$rc" -eq 2 ]; then pass=$((pass+1)); echo "PASS: kill switch unrecognized value stays enabled"; else fail=$((fail+1)); echo "FAIL: kill switch unrecognized value stays enabled (got $rc) — $out"; fi
+
+workdir="$(mktemp -d)"; git init -q "$workdir"
+out="$(cd "$workdir" && CLAUDE_PROJECT_DIR="$workdir" CLAUDE_ROLE=growth-analytics GA_FUNNEL_GATE_OFF=1 bash -c 'printf "%s" "$1" | "$2"' _ "$(mkjson_write docs/issue-9/reports/growth-analytics.md "$TWO_RECS")" "$gate" 2>&1)"; rc=$?
+rm -rf "$workdir"
+if [ "$rc" -eq 0 ]; then pass=$((pass+1)); echo "PASS: kill switch recognized on-value disables gate"; else fail=$((fail+1)); echo "FAIL: kill switch recognized on-value disables gate (got $rc) — $out"; fi
+
+# --- issue-10 mandatory: absolute path outside project root denied ---
+workdir="$(mktemp -d)"; git init -q "$workdir"
+outside="$(mktemp -d)"
+out="$(cd "$workdir" && CLAUDE_PROJECT_DIR="$workdir" CLAUDE_ROLE=growth-analytics printf '%s' "$(mkjson_write "$outside/docs/issue-9/reports/growth-analytics.md" "$FULL")" | "$gate" 2>&1)"; rc=$?
+rm -rf "$workdir" "$outside"
+if [ "$rc" -eq 2 ]; then pass=$((pass+1)); echo "PASS: absolute path outside project root denied"; else fail=$((fail+1)); echo "FAIL: absolute path outside project root denied (got $rc) — $out"; fi
+
+# --- issue-10 mandatory: Edit replace_all reconstruction doesn't crash ---
+workdir="$(mktemp -d)"; git init -q "$workdir"
+mkdir -p "$workdir/docs/issue-9/reports"
+printf '%s' "$FULL" > "$workdir/docs/issue-9/reports/growth-analytics.md"
+edit_json="$(python3 -c '
+import json, sys
+print(json.dumps({"tool_name": "Edit", "tool_input": {"file_path": sys.argv[1], "old_string": "stage 3", "new_string": "stage 3 (mobile)", "replace_all": True}}))
+' docs/issue-9/reports/growth-analytics.md)"
+out="$(cd "$workdir" && CLAUDE_PROJECT_DIR="$workdir" CLAUDE_ROLE=growth-analytics printf '%s' "$edit_json" | "$gate" 2>&1)"; rc=$?
+rm -rf "$workdir"
+if [ "$rc" -eq 0 ]; then pass=$((pass+1)); echo "PASS: Edit replace_all=true reconstructs all occurrences"; else fail=$((fail+1)); echo "FAIL: Edit replace_all=true reconstructs all occurrences (got $rc) — $out"; fi
+
+# --- issue-10 mandatory: MultiEdit with per-edit replace_all ---
+workdir="$(mktemp -d)"; git init -q "$workdir"
+mkdir -p "$workdir/docs/issue-9/reports"
+printf '%s' "$FULL" > "$workdir/docs/issue-9/reports/growth-analytics.md"
+multi_json="$(python3 -c '
+import json, sys
+print(json.dumps({"tool_name": "MultiEdit", "tool_input": {"file_path": sys.argv[1], "edits": [{"old_string": "Fix the mobile payment redirect for stage 3", "new_string": "Fix the mobile payment redirect for stage 3 today", "replace_all": False}]}}))
+' docs/issue-9/reports/growth-analytics.md)"
+out="$(cd "$workdir" && CLAUDE_PROJECT_DIR="$workdir" CLAUDE_ROLE=growth-analytics printf '%s' "$multi_json" | "$gate" 2>&1)"; rc=$?
+rm -rf "$workdir"
+if [ "$rc" -eq 0 ]; then pass=$((pass+1)); echo "PASS: MultiEdit per-edit replace_all=false reconstructs correctly"; else fail=$((fail+1)); echo "FAIL: MultiEdit per-edit replace_all=false reconstructs correctly (got $rc) — $out"; fi
+
 echo "---"
 echo "ga-funnel: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
