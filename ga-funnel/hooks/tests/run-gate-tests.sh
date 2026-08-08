@@ -42,18 +42,20 @@ grep_case() {
 }
 
 FULL="## Funnel diagnosis
-Stage definition: stage 1 = signup, stage 2 = activation, stage 3 = purchase
+Stage definition: stage 1 = acquisition, stage 2 = activation, stage 3 = revenue
 Drop-off: stage 2 -> stage 3: 60% drop
 Segment: channel breakdown shows drop concentrated in paid-social channel
 Bottleneck hypothesis: checkout drop is caused by a broken payment redirect on mobile paid-social traffic
+is_north_star: true (checkout conversion rate)
 Recommendation:
 - Fix the mobile payment redirect for stage 3"
 
 TWO_RECS="## Funnel diagnosis
-Stage definition: stage 1 = signup, stage 2 = activation, stage 3 = purchase
+Stage definition: stage 1 = acquisition, stage 2 = activation, stage 3 = revenue
 Drop-off: stage 2 -> stage 3: 60% drop
 Segment: channel breakdown shows drop concentrated in paid-social channel
 Bottleneck hypothesis: checkout drop is caused by a broken payment redirect on mobile paid-social traffic
+is_north_star: true (checkout conversion rate)
 Recommendation:
 - Fix the mobile payment redirect for stage 3
 - Also redesign the onboarding stage entirely"
@@ -73,6 +75,27 @@ Segment: channel breakdown shows drop concentrated in paid-social channel
 Bottleneck hypothesis: stage 3 has the biggest drop
 Recommendation:
 - Fix the payment redirect"
+
+# --- issue-17: funnel_stage label + is_north_star anchored value ---
+NO_FUNNEL_STAGE_LABEL="## Funnel diagnosis
+Stage definition: stage 1 = signup, stage 2 = purchase
+Drop-off: stage 1 -> stage 2: 60% drop
+Segment: channel breakdown shows drop concentrated in paid-social channel
+Bottleneck hypothesis: checkout drop is caused by a broken payment redirect
+is_north_star: true (checkout conversion rate)
+Recommendation:
+- Fix the payment redirect"
+grep_case "REJECT: no canonical funnel_stage label on a stage-pair line" "funnel_stage" "$(mkjson_write docs/issue-9/reports/growth-analytics.md "$NO_FUNNEL_STAGE_LABEL")" ""
+
+BARE_NORTH_STAR="## Funnel diagnosis
+Stage definition: stage 1 = acquisition, stage 2 = revenue
+Drop-off: stage 1 -> stage 2: 60% drop
+Segment: channel breakdown shows drop concentrated in paid-social channel
+Bottleneck hypothesis: checkout drop is caused by a broken payment redirect
+This metric is_north_star for the team.
+Recommendation:
+- Fix the payment redirect"
+grep_case "REJECT: bare is_north_star mention with no anchored true/false value" "is_north_star" "$(mkjson_write docs/issue-9/reports/growth-analytics.md "$BARE_NORTH_STAR")" ""
 
 run_pass "PASS: all 5 components, one recommendation" "$(mkjson_write docs/issue-9/reports/growth-analytics.md "$FULL")" ""
 grep_case "REJECT: two recommendations" "exactly one recommendation" "$(mkjson_write docs/issue-9/reports/growth-analytics.md "$TWO_RECS")" ""
