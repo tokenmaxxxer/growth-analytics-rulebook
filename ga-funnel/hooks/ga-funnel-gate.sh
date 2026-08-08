@@ -171,6 +171,40 @@ missing = []
 if not has_any("stage definition", "event definition", "stage/event"):
     missing.append("stage/event definitions")
 
+# funnel_stage: at least one stage-pair line must name one of the five
+# canonical AARRR labels directly, or via an explicit "stage N = <label>"
+# mapping declared earlier in the section (issue-17).
+STAGE_LABELS = ("acquisition", "activation", "retention", "referral", "revenue")
+stage_alias = {}
+for m in re.finditer(r'stage\s*(\d+)\s*=\s*(%s)' % "|".join(STAGE_LABELS), low):
+    stage_alias[m.group(1)] = m.group(2)
+
+funnel_stage_ok = False
+for m in re.finditer(r'stage\s*(\d+)[^\n]{0,80}(->|→|to)[^\n]{0,80}stage\s*(\d+)', low):
+    if stage_alias.get(m.group(1)) or stage_alias.get(m.group(3)):
+        funnel_stage_ok = True
+        break
+if not funnel_stage_ok and any(label in low for label in STAGE_LABELS):
+    # a direct label mention on a stage-pair-shaped line also counts
+    for m in re.finditer(r'(stage\s*\d+[^\n]{0,80}(->|→|to)[^\n]{0,80}stage\s*\d+[^\n]{0,80})', low):
+        if any(label in m.group(1) for label in STAGE_LABELS):
+            funnel_stage_ok = True
+            break
+if not funnel_stage_ok:
+    missing.append(
+        "funnel_stage: no stage-pair line names one of the five canonical labels "
+        "(acquisition/activation/retention/referral/revenue), directly or via a "
+        "declared 'stage N = <label>' mapping"
+    )
+
+# is_north_star: an explicit true/false value anchored to a named metric
+# line, not a bare mention of the phrase (issue-17).
+if not re.search(r'is_north_star\s*:\s*(true|false)\b', low):
+    missing.append(
+        "is_north_star: no labeled 'is_north_star: true|false' line anchored to a "
+        "named metric (a bare mention of the phrase is not sufficient)"
+    )
+
 # step 2: numbers attributable to a specific stage pair, e.g. "stage 1 -> stage 2: 40%"
 stage_pair_pattern = re.search(
     r'(stage\s*\d+[^\n]{0,40}(->|→|to)[^\n]{0,40}stage\s*\d+)[^\n]{0,60}\d+(\.\d+)?\s*%',

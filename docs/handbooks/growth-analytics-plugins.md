@@ -107,6 +107,54 @@ it is disposable: deleting it only means the gate re-verifies from
 scratch on the next write to that issue's record, it never causes a false
 allow. Do not hand-edit it.
 
+## Record field vocabulary (issue-17)
+
+Layered onto the existing plugins from `growth-analytics.spec.json`'s
+required record fields and `loop_state` vocabulary — extending, not
+replacing, the funnel-diagnosis structure above.
+
+- `funnel_stage` — one of the five canonical AARRR labels
+  (`acquisition`/`activation`/`retention`/`referral`/`revenue`). Every
+  stage-pair line in a record's funnel-diagnosis section must name one of
+  these five labels directly, or via an explicit "stage N = `<label>`"
+  mapping declared earlier in the section. Enforced by
+  `ga-funnel-gate.sh`.
+- `metric_value` — the computed figure a stage-pair or north-star-metric
+  line resolves to. Must be a real number sourced from actual analytics
+  data — never a fabricated figure. This rulebook names the field and
+  requires its presence/shape in the funnel-diagnosis section;
+  `metric_value`'s no-fabrication rule itself is enforced by
+  `on-the-record/hooks/role-spec-reference-guard.sh`, outside this repo.
+- `is_north_star` — a `true`/`false` flag anchored to a specific named
+  metric line (e.g. `is_north_star: true|false`), not a bare mention of
+  the phrase. NSM sits above AARRR as a cross-cutting flag on a metric,
+  not a separate methodology step, so it is checked inside the same
+  funnel-diagnosis section rather than a new plugin. At most one record
+  should carry `is_north_star: true` at a time; enforcing that
+  uniqueness across records is a stated follow-up (`checked_by: TBD` in
+  the spec, per issue-521), not built here.
+
+`loop_state` vocabulary — the exact five-word set from
+`growth-analytics.spec.json`, no stale or extra states:
+
+- progress: `measuring`, `reviewing`
+- terminal: `landed`
+- refusal: `stage-undeclared`
+- error: `analytics-data-unreachable`
+
+This is declared here as prose, not via
+`docs/specs/record-fields-terminal-states.json`: that override file's
+`kind ->` mapping (`core/hooks/record-fields-gate.sh`) accepts only
+contract §2's fixed nine record kinds (`coding-record`, `qa-record`,
+etc.) as keys — it lets an unmapped role's own record *borrow* one of
+those nine terminal-state sets via a self-declared `kind:` frontmatter
+field, it does not let a role register a brand-new kind or vocabulary.
+`growth-analytics` is not one of the nine and this five-word set is not
+a subset of any of them, so the override file cannot carry it; a
+`growth-analytics` key in that file is refused at write time
+("unrecognized kind"). See `docs/issue-17/reports/implementation.md`'s
+Rationale for deviations for the discovery detail.
+
 ## Adding a new methodology plugin
 
 Follow the shape of the three existing plugins:

@@ -7,6 +7,8 @@ generated as skeleton scaffolding by issue-170.
 - **decides**: 퍼널 병목과 실험 결과가 실제 개선인지
 - **use_when**: 퍼널 분석 또는 A/B 실험 해석이 걸릴 때
 - **produces**: funnel diagnosis, experiment trust verdict (SRM/pre-registration check)
+- **record fields** (`growth-analytics.spec.json`): `funnel_stage`, `metric_value`, `is_north_star`
+- **loop_state**: `measuring`, `reviewing`, `landed`, `stage-undeclared`, `analytics-data-unreachable`
 - **write_scope**: []
 - **hand-off**: 캠페인 메시지 변경이 필요하면 → marketing
 
