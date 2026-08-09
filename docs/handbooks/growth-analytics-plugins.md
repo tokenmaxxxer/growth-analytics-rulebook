@@ -49,6 +49,20 @@ unresolvable) and a `bash-write-coverage` group (denies a `Bash`-redirect
 write to the gate's own guarded path); a harness that silently drops
 either group fails itself via a trailing assertion.
 
+Since issue-20 phase 2, each `run-gate-tests.sh` resolves core *before*
+any test case runs, per the on-the-record test-env-resolution convention
+(`docs/specs/test-env-resolution.md`, issue #551): it checks
+`$CLAUDE_PLUGIN_ROOT_CORE/hooks/lib/gate-lib.sh` first, then the sibling
+`../../../core/hooks/lib/gate-lib.sh` relative to the test script; if
+neither resolves to a non-empty file, it prints
+`SKIP: core plugin unreachable — unverifiable outside spawn env` to
+stderr and exits `75` before running any test case, instead of
+misreporting every case as FAIL. This is a runner-level upfront check,
+distinct from each gate script's own per-invocation fail-closed sourcing
+guard (`missing-core` test group above), which is unchanged. When core
+resolves, `CLAUDE_PLUGIN_ROOT_CORE` is unconditionally exported to the
+resolved path so no stale pre-set value survives into the test cases.
+
 Also verify gate-lib compliance against core's detector:
 
 ```
