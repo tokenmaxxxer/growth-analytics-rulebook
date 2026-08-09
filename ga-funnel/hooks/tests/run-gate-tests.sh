@@ -7,6 +7,22 @@ gate="$here/../ga-funnel-gate.sh"
 pass=0
 fail=0
 
+# test-env resolution: docs/specs/test-env-resolution.md (on-the-record issue #551)
+resolve_core() {
+  if [ -n "${CLAUDE_PLUGIN_ROOT_CORE:-}" ] && [ -s "$CLAUDE_PLUGIN_ROOT_CORE/hooks/lib/gate-lib.sh" ]; then
+    return 0
+  fi
+  local sibling="$here/../../../core"
+  if [ -s "$sibling/hooks/lib/gate-lib.sh" ]; then
+    CLAUDE_PLUGIN_ROOT_CORE="$(cd "$sibling" && pwd)"
+    return 0
+  fi
+  echo "SKIP: core plugin unreachable — unverifiable outside spawn env" >&2
+  exit 75
+}
+resolve_core
+export CLAUDE_PLUGIN_ROOT_CORE
+
 mkjson_write() {
   python3 -c '
 import json, sys
