@@ -8,10 +8,18 @@ different methodology).
 
 ## Sequence (hard order)
 
-1. **SRM check.** Require a chi-square statistic AND p-value plus the
-   expected-vs-observed split. If SRM is detected, hard-stop here — do
-   not let the session proceed to step 2 until SRM is resolved or the
-   experiment is declared invalid.
+1. **SRM check + exposure integrity.** Require a chi-square statistic
+   AND p-value plus the expected-vs-observed split. If SRM is detected,
+   hard-stop here — do not let the session proceed to step 2 until SRM
+   is resolved or the experiment is declared invalid. Alongside the SRM
+   number, also ask whether any unit was exposed to more than one
+   variant (cross-arm contamination — e.g. a user bucketed by two
+   different keys, or a shared device/session crossing arms). A clean
+   SRM chi-square does not itself rule this out: multiple-exposure
+   contamination can bias the point estimate while leaving arm sizes
+   balanced. Treat a detected multiple-exposure rate above the walk's
+   stated tolerance the same as a detected SRM — hard-stop until
+   resolved or the experiment is invalidated.
 2. **A/A validation status.** Require exactly one of validated/failed/
    unvalidated, literal, plus an observed false-positive rate if known.
    "Unvalidated" caps confidence in the eventual verdict; it does not

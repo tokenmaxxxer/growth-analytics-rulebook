@@ -23,6 +23,13 @@ label-like cue and a substantive value (a heading alone does not count):
      magnitude. Reject "should improve X" with no direction/magnitude.
   3. State sample size AND duration together, with the power-analysis
      basis named (even informally). Either alone does not satisfy this.
+     If a pre-experiment baseline value of the primary metric is
+     available per unit (e.g. last-30d value before assignment), name
+     it and note whether the power basis accounts for the variance
+     reduction it buys — a baseline-adjusted analysis can hit the same
+     sensitivity at a smaller sample or shorter duration than a raw
+     between-arm comparison, so the sample-size line should say
+     explicitly whether that adjustment was assumed.
   4. Name guardrail metric(s) distinct from the primary metric, each
      with a stated breach bound — not just a name. Reject reusing the
      primary metric as its own guardrail.

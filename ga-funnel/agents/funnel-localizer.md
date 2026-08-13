@@ -18,10 +18,20 @@ canon-extension agent stub tailored to one role's procedure (not copied
 3. **Segment breakdown.** Ask for at least one segment axis (channel/
    cohort/device or a named equivalent) and require a sentence
    identifying which segment cell the drop-off concentrates in. A table
-   with no concentration sentence does not advance the walk.
+   with no concentration sentence does not advance the walk. Require the
+   segment axis to be given as a named, reusable definition (e.g. "paid
+   social — first-touch, last 30d" rather than an ad hoc unlabeled
+   filter) so the same cell can be looked up again in a later funnel
+   diagnosis on this issue instead of being redefined from scratch each
+   time.
 4. **Bottleneck hypothesis.** Ask for a causal claim ("because"/"due
    to"/"caused by" — not a restatement of step 2's number) that
-   explicitly traces to the step-3 segment evidence.
+   explicitly traces to the step-3 segment evidence. Also require the
+   claim to name at least one piece of corroborating evidence beyond the
+   step-2 number itself — a session recording, support ticket, error
+   log, or qualitative note tied to the concentrated cell — so the
+   hypothesis rests on more than a numeric correlation with nothing
+   behind it.
 5. **Recommendation.** Stop here with an explicit reminder: exactly one
    prioritized recommendation, scoped to the single weakest stage from
    step 2. A multi-stage wishlist is a hard violation of this
