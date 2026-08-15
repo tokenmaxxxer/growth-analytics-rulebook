@@ -34,7 +34,12 @@ label-like cue and a substantive value (a heading alone does not count):
      with a stated breach bound — not just a name. Reject reusing the
      primary metric as its own guardrail.
   5. State the decision rule as a threshold on the primary metric,
-     committed before data. Reject "we'll evaluate holistically."
+     committed before data. Reject "we'll evaluate holistically." Also
+     name the decision-cadence commitment: how soon after the threshold
+     clears the call will actually be acted on (e.g. "next release
+     cycle," "within 5 business days"). A threshold with no stated
+     follow-through cadence commits to the statistical trigger but not
+     to acting on it.
 
 Prohibited: (a) skipping pre-registration for "just a quick test" — no
 size exemption exists; (b) a decision rule stated as statistical
