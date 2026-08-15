@@ -23,11 +23,23 @@ label-like cue and a substantive value (a heading alone does not count):
      magnitude. Reject "should improve X" with no direction/magnitude.
   3. State sample size AND duration together, with the power-analysis
      basis named (even informally). Either alone does not satisfy this.
+     If a pre-experiment baseline value of the primary metric is
+     available per unit (e.g. last-30d value before assignment), name
+     it and note whether the power basis accounts for the variance
+     reduction it buys — a baseline-adjusted analysis can hit the same
+     sensitivity at a smaller sample or shorter duration than a raw
+     between-arm comparison, so the sample-size line should say
+     explicitly whether that adjustment was assumed.
   4. Name guardrail metric(s) distinct from the primary metric, each
      with a stated breach bound — not just a name. Reject reusing the
      primary metric as its own guardrail.
   5. State the decision rule as a threshold on the primary metric,
-     committed before data. Reject "we'll evaluate holistically."
+     committed before data. Reject "we'll evaluate holistically." Also
+     name the decision-cadence commitment: how soon after the threshold
+     clears the call will actually be acted on (e.g. "next release
+     cycle," "within 5 business days"). A threshold with no stated
+     follow-through cadence commits to the statistical trigger but not
+     to acting on it.
 
 Prohibited: (a) skipping pre-registration for "just a quick test" — no
 size exemption exists; (b) a decision rule stated as statistical
